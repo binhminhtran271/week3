@@ -1,0 +1,196 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int **readCSV(const char *filename, int *rows, int *cols) {
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+        printf("Error: Could not open file %s!\n", filename);
+        return NULL;
+    }
+    char line[1024];
+    int **mat = NULL;
+    *rows = 0;
+    *cols = 0;
+    while (fgets(line, sizeof(line), f)) {
+     size_t len = strlen(line);
+        if (len > 0 && line[len - 1] == '\n') {
+            line[len - 1] = '\0';
+            len--;
+        }
+        if (len > 0 && line[len - 1] == '\r') {
+            line[len - 1] = '\0';
+        }
+        if (strlen(line) == 0) continue;
+        int colCount = 0;
+        char *token;
+        if (*cols == 0) {
+            char tmp[1024];
+            strcpy(tmp, line);
+            token = strtok(tmp, ",");
+            while (token) {
+                colCount++;
+                token = strtok(NULL, ",");
+            }
+            *cols = colCount;
+            if (*cols == 0) continue;
+        }
+        if (*cols == 0) {
+            printf("Error: Matrix has no columns!\n");
+            fclose(f);
+            return NULL;
+        }
+        mat = realloc(mat, (*rows + 1) * sizeof(int *));
+        if (!mat) {
+             printf("Memory allocation error (rows)!\n");
+             fclose(f);
+             return NULL;
+        }
+        mat[*rows] = (int *)malloc(*cols * sizeof(int));
+        if (!mat[*rows]) {
+             printf("Memory allocation error (cols)!\n");
+             fclose(f);
+             return NULL;
+        }
+        int j = 0;
+        token = strtok(line, ",");
+        while (token && j < *cols) {
+            if (*token == ' ') token++;
+            mat[*rows][j++] = atoi(token);
+            token = strtok(NULL, ",");
+        }
+        (*rows)++;
+    }
+    fclose(f);
+    return mat;
+}
+void printMatrix(int **mat, int r, int c) {
+    if (!mat || r <= 0 || c <= 0) {
+        printf("NULL (Cannot perform operation or empty matrix)\n");
+        return;
+    }
+    for (int i = 0; i < r; i++) {
+        for (int j = 0; j < c; j++)
+            printf("%d ", mat[i][j]);
+        printf("\n");
+    }
+}
+void writeCSV(const char *filename, int **mat, int r, int c) {
+    FILE *f = fopen(filename, "w");
+    if (!f) {
+        printf("Error: Could not create file %s!\n", filename);
+        return;
+    }
+    for (int i = 0; i < r; i++) {
+        for (int j = 0; j < c; j++) {
+            fprintf(f, "%d", mat[i][j]);
+            if (j < c - 1) fprintf(f, ",");
+        }
+        fprintf(f, "\n");
+    }
+    fclose(f);
+    printf("Successfully wrote file %s!\n", filename);
+}
+int **addMatrix(int **A, int r1, int c1, int **B, int r2, int c2) {
+    if (r1 != r2 || c1 != c2) {
+        printf("Error: Matrix dimensions incompatible for addition!\n");
+        return NULL;
+    }
+    int **C = (int **)malloc(r1 * sizeof(int *));
+    if (!C) return NULL;
+    for (int i = 0; i < r1; i++) {
+        C[i] = (int *)malloc(c1 * sizeof(int));
+        if (!C[i]) return NULL;
+        for (int j = 0; j < c1; j++)
+            C[i][j] = A[i][j] + B[i][j];
+    }
+    return C;
+}
+int **subMatrix(int **A, int r1, int c1, int **B, int r2, int c2) {
+    if (r1 != r2 || c1 != c2) {
+        printf("Error: Matrix dimensions incompatible for subtraction!\n");
+        return NULL;
+    }
+    int **C = (int **)malloc(r1 * sizeof(int *));
+    if (!C) return NULL;
+    for (int i = 0; i < r1; i++) {
+        C[i] = (int *)malloc(c1 * sizeof(int));
+        if (!C[i]) return NULL;
+        for (int j = 0; j < c1; j++)
+            C[i][j] = A[i][j] - B[i][j];
+    }
+    return C;
+}
+int **mulMatrix(int **A, int r1, int c1, int **B, int r2, int c2) {
+    if (c1 != r2) {
+        printf("Error: Column count of A differs from row count of B for multiplication!\n");
+        return NULL;
+    }
+    int **C = (int **)malloc(r1 * sizeof(int *));
+    if (!C) return NULL;
+    for (int i = 0; i < r1; i++) {
+        C[i] = (int *)malloc(c2 * sizeof(int));
+        if (!C[i]) return NULL;
+        for (int j = 0; j < c2; j++) {
+            C[i][j] = 0;
+            for (int k = 0; k < c1; k++)
+                C[i][j] += A[i][k] * B[k][j];
+        }
+    }
+    return C;
+}
+int main() {
+    int r1 = 0, c1 = 0, r2 = 0, c2 = 0;
+    const char *path_dir = "D:/lap trinh c/codeblocks/Matrix/bin/Debug/";
+    char pathA[256];
+    char pathB[256];
+    snprintf(pathA, sizeof(pathA), "%s%s", path_dir, "matrixA.csv");
+    snprintf(pathB, sizeof(pathB), "%s%s", path_dir, "matrixB.csv");
+    int **A = readCSV(pathA, &r1, &c1);
+    int **B = readCSV(pathB, &r2, &c2);
+    if (!A || !B) {
+        printf("\nProgram terminated due to file read error or empty matrix.\n");
+        goto cleanup;
+    }
+    printf("\n=== Matrix A (%dx%d) ===\n", r1, c1);
+    printMatrix(A, r1, c1);
+    printf("\n=== Matrix B (%dx%d) ===\n", r2, c2);
+    printMatrix(B, r2, c2);
+    int **Cadd = addMatrix(A, r1, c1, B, r2, c2);
+    printf("\n=== A + B ===\n");
+    printMatrix(Cadd, r1, c1);
+    if (Cadd) writeCSV("result_add.csv", Cadd, r1, c1);
+    int **Csub = subMatrix(A, r1, c1, B, r2, c2);
+    printf("\n=== A - B ===\n");
+    printMatrix(Csub, r1, c1);
+    if (Csub) writeCSV("result_sub.csv", Csub, r1, c1);
+    int **Cmul = mulMatrix(A, r1, c1, B, r2, c2);
+    printf("\n=== A * B ===\n");
+    printMatrix(Cmul, r1, c2);
+    if (Cmul) writeCSV("result_mul.csv", Cmul, r1, c2);
+cleanup:
+    if (A != NULL) {
+        for(int i = 0; i < r1; i++) {
+            if (A[i] != NULL) free(A[i]);
+        }
+        free(A);
+    }
+    if (B != NULL) {
+        for(int i = 0; i < r2; i++) {
+            if (B[i] != NULL) free(B[i]);
+        }
+        free(B);
+    }
+    if (Cadd) {
+        for(int i = 0; i < r1; i++) free(Cadd[i]);
+        free(Cadd);
+    }
+    if (Csub) {
+        for(int i = 0; i < r1; i++) free(Csub[i]);
+        free(Csub);
+    }
+    if (Cmul) {
+        for(int i = 0; i < r1; i++) free(Cmul[i]);
+        free(Cmul);
+    }
+    return 0;
+}
